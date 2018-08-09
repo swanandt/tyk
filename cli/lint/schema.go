@@ -755,6 +755,24 @@ const confSchema = `{
 	},
 	"proxy_ssl_disable_renegotiation": {
 		"type": "boolean"
+	},
+	"chunked_quota": {
+		"type": ["object", "null"],
+		"additionalProperties": false,
+		"properties": {
+			"enable_chunked_quota": {
+				"type": "boolean"
+			},
+			"quota_chunk_size": {
+				"type": "integer"
+			},
+			"chunk_return_timeout": {
+				"type": "integer"
+			},
+			"chunk_return_part": {
+				"type": "integer"
+			}
+		}
 	}
 }
 }`
