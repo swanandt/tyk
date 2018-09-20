@@ -186,6 +186,13 @@ type NewRelicConfig struct {
 	LicenseKey string `json:"license_key"`
 }
 
+type ChunkedQuotaConfig struct {
+	EnableChunkedQuota bool    `json:"enable_chunked_quota"`
+	ChunkSize          int64   `json:"quota_chunk_size"`
+	ChunkReturnTimeout uint64  `json:"chunk_return_timeout"`
+	ChunkReturnPart    float64 `json:"chunk_return_part"`
+}
+
 // Config is the configuration object used by tyk to set up various parameters.
 type Config struct {
 	// OriginalPath is the path to the config file that was read. If
@@ -294,8 +301,7 @@ type Config struct {
 	MinTokenLength                    int                                   `json:"min_token_length"`
 	DisableRegexpCache                bool                                  `json:"disable_regexp_cache"`
 	RegexpCacheExpire                 int32                                 `json:"regexp_cache_expire"`
-	DistributedQuotaEnabled           bool                                  `json:"distributed_quota_enabled"`
-	DistributedQuotaSyncFrequency     int32                                 `json:"distributed_quota_sync_frequency"`
+	ChunkedQuota                      ChunkedQuotaConfig                    `json:"chunked_quota"`
 }
 
 type CertData struct {
