@@ -57,7 +57,7 @@ var (
 	rawLog                   = logger.GetRaw()
 	templates                *template.Template
 	analytics                RedisAnalyticsHandler
-	GlobalEventsJSVM         JSVM
+	GlobalEventsJSVM         = InitJSVM()
 	memProfFile              *os.File
 	MainNotifier             RedisNotifier
 	DefaultOrgStore          DefaultSessionManager
