@@ -46,21 +46,20 @@ func (j *OttoJSVM) GetTimeout() time.Duration {
 // Init creates the JSVM with the core library and sets up a default
 // timeout.
 func (j *OttoJSVM) Init(spec *APISpec, logger *logrus.Entry) {
-	vm := otto.New()
+	j.VM = otto.New()
 	logger = logger.WithField("prefix", "jsvm")
 
 	// Init TykJS namespace, constructors etc.
-	if _, err := vm.Run(coreJS); err != nil {
+	if _, err := j.Run(coreJS); err != nil {
 		logger.WithError(err).Error("Could not load TykJS")
 		return
 	}
 
 	// Load user's TykJS on top, if any
 	if path := config.Global().TykJSPath; path != "" {
-		f, err := os.Open(path)
+		f, err := ioutil.ReadFile(path)
 		if err == nil {
-			_, err = vm.Run(f)
-			f.Close()
+			_, err = j.Run(string(f))
 
 			if err != nil {
 				logger.WithError(err).Error("Could not load user's TykJS")
@@ -68,7 +67,6 @@ func (j *OttoJSVM) Init(spec *APISpec, logger *logrus.Entry) {
 		}
 	}
 
-	j.VM = vm
 	j.Spec = spec
 
 	// Add environment API
@@ -434,7 +432,7 @@ func (j *OttoJSVM) Run(s string) (interface{}, error) {
 	return j.VM.Run(s)
 }
 
-// wraps otto string function to avoid using reflection in tests etc when stringifying results of vm.Run() so it here where its safer
+// wraps otto String() function to avoid using reflection in tests etc when stringifying results of vm.Run() so it here where its safer
 func (j *OttoJSVM) String(val interface{}) string {
 	return val.(otto.Value).String()
 }

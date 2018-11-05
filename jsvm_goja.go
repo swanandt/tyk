@@ -16,7 +16,6 @@ import (
 	"github.com/TykTechnologies/tyk/config"
 	"github.com/TykTechnologies/tyk/user"
 	"github.com/dop251/goja"
-	_ "github.com/robertkrimen/otto/underscore"
 )
 
 type TykJSVM interface {
@@ -124,19 +123,12 @@ func (j *GojaJSVM) LoadJSPaths(paths []string, prefix string) {
 func (j *GojaJSVM) RunJSRequestDynamic(d *DynamicMiddleware, logger *logrus.Entry, requestAsJson string, sessionAsJson string, specAsJson string) (error, int, string) {
 	middlewareClassname := d.MiddlewareClassName
 	vm := j.VM
-	interrupt := make(chan func(), 1)
 	logger.Debug("Running: ", middlewareClassname)
 	// buffered, leaving no chance of a goroutine leak since the
 	// spawned goroutine will send 0 or 1 values.
 	ret := make(chan goja.Value, 1)
 	errRet := make(chan error, 1)
 	go func() {
-		defer func() {
-			// the VM executes the panic func that gets it
-			// to stop, so we must recover here to not crash
-			// the whole Go program.
-			recover()
-		}()
 		returnRaw, err := vm.RunString(middlewareClassname + `.DoProcessRequest(` + requestAsJson + `, ` + sessionAsJson + `, ` + specAsJson + `);`)
 		ret <- returnRaw
 		errRet <- err
@@ -153,11 +145,7 @@ func (j *GojaJSVM) RunJSRequestDynamic(d *DynamicMiddleware, logger *logrus.Entr
 	case <-t.C:
 		t.Stop()
 		logger.Error("JS middleware timed out after ", d.Spec.JSVM.GetTimeout())
-		interrupt <- func() {
-			// only way to stop the VM is to send it a func
-			// that panics.
-			panic("stop")
-		}
+		vm.Interrupt("Stopping VM for timeout")
 		return nil, http.StatusOK, ""
 	}
 	returnDataStr := returnRaw.String()

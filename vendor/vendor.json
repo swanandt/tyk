@@ -157,6 +157,12 @@
 			"revisionTime": "2016-11-01T19:39:35Z"
 		},
 		{
+			"checksumSHA1": "2mqEa1532bTOeCf6a/FiQjYTIZ4=",
+			"path": "github.com/dop251/goja",
+			"revision": "ef8c030e3c96c5054c2f10ef925e7041e0583c07",
+			"revisionTime": "2018-07-19T22:04:25Z"
+		},
+		{
 			"checksumSHA1": "CycvZIDE4VWWT1jeYa8N5O9ZCd0=",
 			"path": "github.com/evalphobia/logrus_sentry",
 			"revision": "3515445f906f3bc291b78599b57b7374951cbb79",
@@ -772,12 +778,6 @@
 		{
 			"checksumSHA1": "Qk7dljcrEK1BJkAEZguxAbG9dSo=",
 			"path": "golang.org/x/text/internal/utf8internal",
-			"revision": "dafb3384ad25363d928a9e97ce4ad3a2f0667e34",
-			"revisionTime": "2017-02-07T18:07:33Z"
-		},
-		{
-			"checksumSHA1": "euHabPKoKBA1T8PJWKTxjPoIDhc=",
-			"path": "golang.org/x/text/language",
 			"revision": "dafb3384ad25363d928a9e97ce4ad3a2f0667e34",
 			"revisionTime": "2017-02-07T18:07:33Z"
 		},
