@@ -466,13 +466,17 @@ func loadCustomMiddleware(spec *APISpec) ([]string, apidef.MiddlewareDefinition,
 	mwPreFuncs := []apidef.MiddlewareDefinition{}
 	mwPostFuncs := []apidef.MiddlewareDefinition{}
 	mwPostKeyAuthFuncs := []apidef.MiddlewareDefinition{}
-	mwDriver := apidef.OttoDriver
-
+	var mwDriver apidef.MiddlewareDriver
+	if config.Global().JSVM == "goja" {
+		mwDriver = apidef.GojaDriver
+	} else {
+		mwDriver = apidef.OttoDriver
+	}
 	// Set AuthCheck hook
 	if spec.CustomMiddleware.AuthCheck.Name != "" {
 		mwAuthCheckFunc = spec.CustomMiddleware.AuthCheck
 		if spec.CustomMiddleware.AuthCheck.Path != "" {
-			// Feed a JS file to Otto
+			// Feed a JS file to JSVM
 			mwPaths = append(mwPaths, spec.CustomMiddleware.AuthCheck.Path)
 		}
 	}
@@ -536,7 +540,7 @@ func loadCustomMiddleware(spec *APISpec) ([]string, apidef.MiddlewareDefinition,
 	// Load PostAuthCheck hooks
 	for _, mwObj := range spec.CustomMiddleware.PostKeyAuth {
 		if mwObj.Path != "" {
-			// Otto files are specified here
+			// JSVM files are specified here
 			mwPaths = append(mwPaths, mwObj.Path)
 		}
 		mwPostKeyAuthFuncs = append(mwPostKeyAuthFuncs, mwObj)

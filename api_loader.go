@@ -209,7 +209,7 @@ func processSpec(spec *APISpec, apisByListen map[string]int,
 
 	mwPaths, mwAuthCheckFunc, mwPreFuncs, mwPostFuncs, mwPostAuthCheckFuncs, mwDriver = loadCustomMiddleware(spec)
 
-	if config.Global().EnableJSVM && mwDriver == apidef.OttoDriver {
+	if config.Global().EnableJSVM && (mwDriver == apidef.OttoDriver || mwDriver == apidef.GojaDriver) {
 		spec.JSVM.LoadJSPaths(mwPaths, prefix)
 	}
 
@@ -274,7 +274,7 @@ func processSpec(spec *APISpec, apisByListen map[string]int,
 		handleCORS(&chainArray, spec)
 
 		for _, obj := range mwPreFuncs {
-			if mwDriver != apidef.OttoDriver {
+			if mwDriver != apidef.OttoDriver && mwDriver != apidef.GojaDriver {
 
 				coprocessLog.Debug("Registering coprocess middleware, hook name: ", obj.Name, "hook type: Pre", ", driver: ", mwDriver)
 				mwAppendEnabled(&chainArray, &CoProcessMiddleware{baseMid, coprocess.HookType_Pre, obj.Name, mwDriver})
@@ -304,7 +304,7 @@ func processSpec(spec *APISpec, apisByListen map[string]int,
 		mwAppendEnabled(&chainArray, &TransformMethod{BaseMiddleware: baseMid})
 
 		for _, obj := range mwPostFuncs {
-			if mwDriver != apidef.OttoDriver {
+			if mwDriver != apidef.OttoDriver && mwDriver != apidef.GojaDriver {
 
 				coprocessLog.Debug("Registering coprocess middleware, hook name: ", obj.Name, "hook type: Post", ", driver: ", mwDriver)
 				mwAppendEnabled(&chainArray, &CoProcessMiddleware{baseMid, coprocess.HookType_Post, obj.Name, mwDriver})
@@ -324,7 +324,7 @@ func processSpec(spec *APISpec, apisByListen map[string]int,
 
 		// Add pre-process MW
 		for _, obj := range mwPreFuncs {
-			if mwDriver != apidef.OttoDriver {
+			if mwDriver != apidef.OttoDriver && mwDriver != apidef.GojaDriver {
 
 				coprocessLog.Debug("Registering coprocess middleware, hook name: ", obj.Name, "hook type: Pre", ", driver: ", mwDriver)
 				mwAppendEnabled(&chainArray, &CoProcessMiddleware{baseMid, coprocess.HookType_Pre, obj.Name, mwDriver})
@@ -364,8 +364,8 @@ func processSpec(spec *APISpec, apisByListen map[string]int,
 			logger.Info("Checking security policy: OpenID")
 		}
 
-		coprocessAuth := EnableCoProcess && mwDriver != apidef.OttoDriver && spec.EnableCoProcessAuth
-		ottoAuth := !coprocessAuth && mwDriver == apidef.OttoDriver && spec.EnableCoProcessAuth
+		coprocessAuth := EnableCoProcess && mwDriver != apidef.OttoDriver && mwDriver != apidef.GojaDriver && spec.EnableCoProcessAuth
+		jsvmAuth := !coprocessAuth && (mwDriver == apidef.OttoDriver || mwDriver == apidef.GojaDriver) && spec.EnableCoProcessAuth
 
 		if coprocessAuth {
 			// TODO: check if mwAuthCheckFunc is available/valid
@@ -375,7 +375,7 @@ func processSpec(spec *APISpec, apisByListen map[string]int,
 			mwAppendEnabled(&authArray, &CoProcessMiddleware{baseMid, coprocess.HookType_CustomKeyCheck, mwAuthCheckFunc.Name, mwDriver})
 		}
 
-		if ottoAuth {
+		if jsvmAuth {
 
 			logger.Info("----> Checking security policy: JS Plugin")
 
@@ -411,7 +411,7 @@ func processSpec(spec *APISpec, apisByListen map[string]int,
 		mwAppendEnabled(&chainArray, &VirtualEndpoint{BaseMiddleware: baseMid})
 
 		for _, obj := range mwPostFuncs {
-			if mwDriver != apidef.OttoDriver {
+			if mwDriver != apidef.OttoDriver && mwDriver != apidef.GojaDriver {
 
 				coprocessLog.Debug("Registering coprocess middleware, hook name: ", obj.Name, "hook type: Post", ", driver: ", mwDriver)
 				mwAppendEnabled(&chainArray, &CoProcessMiddleware{baseMid, coprocess.HookType_Post, obj.Name, mwDriver})
