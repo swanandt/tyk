@@ -236,6 +236,9 @@ const confSchema = `{
 	"enable_jsvm": {
 		"type": "boolean"
 	},
+	"jsvm":{
+		"type": "string"
+	},
 	"jsvm_timeout": {
 		"type": "integer"
 	},
