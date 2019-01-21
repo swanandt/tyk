@@ -91,12 +91,13 @@ func (d *DynamicMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Reques
 	logger := d.Logger()
 
 	// Create the proxy object
-	defer r.Body.Close()
 	originalBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		logger.WithError(err).Error("Failed to read request body")
 		return nil, http.StatusOK
 	}
+	defer r.Body.Close()
+
 	headers := r.Header
 	host := r.Host
 	if host == "" && r.URL != nil {
@@ -236,7 +237,7 @@ func (d *DynamicMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Reques
 
 	r.URL.RawQuery = values.Encode()
 
-	// Save the sesison data (if modified)
+	// Save the session data (if modified)
 	if !d.Pre && d.UseSession {
 		newMeta := mapStrsToIfaces(newRequestData.SessionMeta)
 		if !reflect.DeepEqual(session.MetaData, newMeta) {
