@@ -237,6 +237,34 @@ func mapStrsToIfaces(m map[string]string) map[string]interface{} {
 }
 
 const coreJS = `
+var window = {location: {protocol: ""}}
+var global = window
+var console = {
+	log: function() { log.apply(null, arguments) }
+	info: function() { log.apply(null, arguments) }
+	warning: function() { log.apply(null, arguments) }
+	error: function() { log.apply(null, arguments) }
+	debug: function() { log.apply(null, arguments) }
+	trace: function() { log.apply(null, arguments) }
+}
+window.console = console
+
+if (!Object.prototype.__defineGetter__ &&
+      Object.defineProperty({},"x",{get: function(){return true}}).x) {
+    Object.defineProperty(Object.prototype, "__defineGetter__",
+       {enumerable: false, configurable: true,
+        value: function(name,func)
+           {Object.defineProperty(this,name,
+               {get:func,enumerable: true,configurable: true});
+    }});
+    Object.defineProperty(Object.prototype, "__defineSetter__",
+       {enumerable: false, configurable: true,
+        value: function(name,func)
+           {Object.defineProperty(this,name,
+               {set:func,enumerable: true,configurable: true});
+    }});
+ }
+
 var TykJS = {
 	TykMiddleware: {
 		MiddlewareComponentMeta: function(configuration) {

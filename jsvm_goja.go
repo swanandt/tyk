@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -29,6 +30,13 @@ type TykJSVM interface {
 	GetLog() *logrus.Entry
 	GetRawLog() *logrus.Logger
 	GetTimeout() time.Duration
+}
+
+type _timer struct {
+	timer    *time.Timer
+	duration time.Duration
+	interval bool
+	call     goja.FunctionCall
 }
 
 func InitJSVM() TykJSVM {
@@ -61,6 +69,96 @@ func (j *GojaJSVM) GetTimeout() time.Duration {
 	return j.Timeout
 }
 
+func (j *GojaJSVM) InitializeTimer() {
+	registry := map[*_timer]*_timer{}
+	ready := make(chan *_timer)
+
+	newTimer := func(call goja.FunctionCall, interval bool) (*_timer, goja.Value) {
+		delay := call.Argument(1).ToInteger()
+		if 0 >= delay {
+			delay = 1
+		}
+
+		timer := &_timer{
+			duration: time.Duration(delay) * time.Millisecond,
+			call:     call,
+			interval: interval,
+		}
+		registry[timer] = timer
+
+		timer.timer = time.AfterFunc(timer.duration, func() {
+			ready <- timer
+		})
+
+		value := j.VM.ToValue(timer)
+
+		return timer, value
+	}
+
+	setTimeout := func(call goja.FunctionCall) goja.Value {
+		_, value := newTimer(call, false)
+		return value
+	}
+	j.VM.Set("setTimeout", setTimeout)
+
+	setInterval := func(call goja.FunctionCall) goja.Value {
+		_, value := newTimer(call, true)
+		return value
+	}
+	j.VM.Set("setInterval", setInterval)
+
+	clearTimeout := func(call goja.FunctionCall) goja.Value {
+		timer := call.Argument(0).Export()
+		if timer, ok := timer.(*_timer); ok {
+			timer.timer.Stop()
+			delete(registry, timer)
+		}
+		return nil
+	}
+	j.VM.Set("clearTimeout", clearTimeout)
+	j.VM.Set("clearInterval", clearTimeout)
+
+	waitForTimeouts := func(call goja.FunctionCall) goja.Value {
+		t := time.NewTimer(j.GetTimeout())
+
+		for {
+			select {
+			case timer := <-ready:
+				if timer.interval {
+					timer.timer.Reset(timer.duration)
+				} else {
+					delete(registry, timer)
+				}
+
+				if fn, ok := goja.AssertFunction(timer.call.Argument(0)); ok {
+					var args []goja.Value
+					if len(timer.call.Arguments) > 2 {
+						args = timer.call.Arguments[2:]
+					}
+					if _, err := fn(nil, args...); err != nil {
+						j.Log.WithError(err)
+					}
+				}
+			case <-t.C:
+				for _, timer := range registry {
+					timer.timer.Stop()
+					delete(registry, timer)
+				}
+				// timeout
+				return nil
+			default:
+			}
+			if len(registry) == 0 {
+				break
+			}
+		}
+
+		return nil
+	}
+
+	j.VM.Set("waitForTimeouts", waitForTimeouts)
+}
+
 // Init creates the JSVM with the core library and sets up a default
 // timeout.
 func (j *GojaJSVM) Init(spec *APISpec, logger *logrus.Entry) {
@@ -90,6 +188,7 @@ func (j *GojaJSVM) Init(spec *APISpec, logger *logrus.Entry) {
 
 	// Add environment API
 	j.LoadTykJSApi()
+	j.InitializeTimer()
 
 	if jsvmTimeout := config.Global().JSVMTimeout; jsvmTimeout <= 0 {
 		j.Timeout = time.Duration(defaultJSVMTimeout) * time.Second
@@ -130,7 +229,7 @@ func (j *GojaJSVM) RunJSRequestDynamic(d *DynamicMiddleware, logger *logrus.Entr
 	ret := make(chan goja.Value, 1)
 	errRet := make(chan error, 1)
 	go func() {
-		returnRaw, err := vm.RunString(middlewareClassname + `.DoProcessRequest(` + requestAsJson + `, ` + sessionAsJson + `, ` + specAsJson + `);`)
+		returnRaw, err := vm.RunString(middlewareClassname + `.DoProcessRequest(` + requestAsJson + `, ` + sessionAsJson + `, ` + specAsJson + `); waitForTimeouts();`)
 		ret <- returnRaw
 		errRet <- err
 	}()
@@ -167,7 +266,7 @@ func (j *GojaJSVM) RunJSRequestVirtual(d *VirtualEndpoint, logger *logrus.Entry,
 			// the whole Go program.
 			recover()
 		}()
-		returnRaw, err := j.Run(vmeta.ResponseFunctionName + `(` + requestAsJson + `, ` + sessionAsJson + `, ` + specAsJson + `);`)
+		returnRaw, err := j.Run(vmeta.ResponseFunctionName + `(` + requestAsJson + `, ` + sessionAsJson + `, ` + specAsJson + `)`)
 		ret <- returnRaw.(goja.Value)
 		errRet <- err
 	}()
@@ -193,11 +292,30 @@ func (j *GojaJSVM) RunJSRequestVirtual(d *VirtualEndpoint, logger *logrus.Entry,
 }
 
 func (j *GojaJSVM) LoadTykJSApi() {
+	j.VM.Set("require", func(call goja.FunctionCall) goja.Value {
+		path := call.Argument(0).String()
+		f, err := ioutil.ReadFile(path)
+		if err != nil {
+			j.Log.WithError(err).Error("Failed to open JS middleware file:" + path)
+			return nil
+		}
+		if obj, err := j.VM.RunString(string(f)); err != nil {
+			j.Log.Error("Require failed:", path, err.(*goja.Exception).String())
+			return nil
+		} else {
+			return obj
+		}
+	})
+
 	// Enable a log
 	j.VM.Set("log", func(call goja.FunctionCall) goja.Value {
+		stringArgs := make([]interface{}, 0)
+		for _, arg := range call.Arguments {
+			stringArgs = append(stringArgs, arg.String())
+		}
 		j.Log.WithFields(logrus.Fields{
 			"type": "log-msg",
-		}).Info(call.Argument(0).String())
+		}).Info(fmt.Sprint(stringArgs...))
 		return nil
 	})
 	j.VM.Set("rawlog", func(call goja.FunctionCall) goja.Value {
@@ -412,8 +530,7 @@ func (j *GojaJSVM) LoadTykJSApi() {
 }
 
 func (j *GojaJSVM) Run(s string) (interface{}, error) {
-
-	return j.VM.RunString(s)
+	return j.VM.RunString(s + "; waitForTimeouts()")
 }
 
 // wraps goja String() function to avoid using reflection in functions/tests when stringifying results of vm.Run() - so do it here where its safer to assume type

@@ -945,3 +945,46 @@ func TestJSVMBase64Goja(t *testing.T) {
 		}
 	})
 }
+
+func TestJSVMRequire(t *testing.T) {
+	globalConf := config.Global()
+	globalConf.TykJSPath = "./js/tyk.js"
+	config.SetGlobal(globalConf)
+	defer resetTestConfig()
+
+	const in = `
+	var s = require("js/soap.js")
+	var url =
+	  "http://www.holidaywebservice.com/HolidayService_v2/HolidayService2.asmx?wsdl";
+
+	s.soap.createClient(url, function(err, client) {
+	  console.log("Inside!!!", err, err.stack, client)
+	  client.GetCountriesAvailable({}, function(err, result) {
+	    console.log("Hello world!", JSON.stringify(result));
+	    countries = result;
+	  });
+	});
+`
+
+	jsvm := GojaJSVM{}
+	jsvm.Init(nil, logrus.NewEntry(log))
+
+	if _, err := jsvm.Run(in); err != nil {
+		t.Fatalf("failed to run js: %v", err)
+	}
+}
+
+func TestJSVMSetTimeout(t *testing.T) {
+	const in = `
+	setTimeout(function(){
+		log("Hello!")
+	}, 1000);
+	`
+
+	jsvm := GojaJSVM{}
+	jsvm.Init(nil, logrus.NewEntry(log))
+
+	if _, err := jsvm.Run(in); err != nil {
+		t.Fatalf("failed to run js: %v", err)
+	}
+}

@@ -14,6 +14,7 @@ testapps/
 /utils/release_rc.sh
 /utils/build_hybrid.sh
 /utils/cloud_release.sh
+/js/soap.js
 
 build_tools/
 build/
